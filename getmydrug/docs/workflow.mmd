@@ -1,0 +1,45 @@
+flowchart TD
+  subgraph ENTRY["Entry"]
+    A["Ad link<br/>drug can be preselected"]
+    B["Prescription launch<br/>from the prescribing workflow"]
+  end
+  A --> DX
+  B --> DX
+  DX["1. Diagnosis<br/>Migraine"]
+  DX --> INS
+  INS{"2. Insurer"}
+  INS -->|UnitedHealthcare| DU["3. Drug<br/>Nurtec ODT, Ubrelvy or Qulipta"]
+  INS -->|Cigna| DC["3. Drug<br/>Nurtec ODT<br/>others coming"]
+  INS -->|None, paying cash| DN["3. Drug<br/>Nurtec ODT, Ubrelvy or Qulipta"]
+  DU --> CRIT
+  DC --> CRIT
+  DN --> COST
+  CRIT["Output 1: Approval criteria<br/>first approval and renewal<br/>state and plan notes"]
+  CRIT --> ASK{"Check my situation?"}
+  ASK -->|Yes| INT["Short interview<br/>questions set by the insurer's rules"]
+  INT --> LIST["Checklist: likely met, not met, confirm<br/>plus a note for the prescriber"]
+  LIST --> COST
+  ASK -->|No| COST
+  COST["Output 2: Cost data<br/>GoodRx, Cost Plus Drugs<br/>live estimate planned"]
+  COST --> SUP["Output 3: Commercial support<br/>manufacturer savings and support link"]
+
+  subgraph DATA["Data behind each step (YAML read at load, plus external pages)"]
+    Y1["directory.yaml<br/>conditions, insurers, drugs, links"]
+    Y2["pa_criteria_INSURER.yaml"]
+    Y3["eligibility_rules_INSURER.yaml"]
+    X["GoodRx, Cost Plus, manufacturer sites<br/>external pages"]
+  end
+  Y1 -.-> INS
+  Y2 -.-> CRIT
+  Y3 -.-> INT
+  X -.-> COST
+  X -.-> SUP
+
+  classDef entry fill:#dcecee,stroke:#0c6b73,color:#12252d
+  classDef decision fill:#fbefd9,stroke:#9a5b00,color:#12252d
+  classDef output fill:#ffe3da,stroke:#e2512b,color:#12252d
+  classDef data fill:#ffffff,stroke:#5a6f78,color:#12252d
+  class A,B entry
+  class INS,ASK decision
+  class CRIT,COST,SUP output
+  class Y1,Y2,Y3,X data

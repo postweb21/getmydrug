@@ -1,0 +1,129 @@
+<title>getmydrug Workflow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single column with the flow diagram first and a short legend and notes under it. */
+:root {
+  --bg: #eef3f5;
+  --surface: #ffffff;
+  --ink: #12252d;
+  --muted: #5a6f78;
+  --line: #d3dfe3;
+  --teal: #0c6b73;
+  --cap: #e2512b;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1a1f; --surface: #15262d; --ink: #e6f0f2; --muted: #93a9b1; --line: #28404a;
+    --teal: #4fc0c9; --cap: #ff6a42; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1a1f; --surface: #15262d; --ink: #e6f0f2; --muted: #93a9b1; --line: #28404a;
+  --teal: #4fc0c9; --cap: #ff6a42; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 32px;
+}
+.wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { margin: 0; font: 700 1.9rem/1.1 var(--font-display); letter-spacing: -0.02em; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.diagram { background: var(--surface); border: 1.5px solid var(--ink); border-radius: 6px; padding: 16px; overflow-x: auto; }
+.diagram pre { margin: 0; display: flex; justify-content: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 0.9rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 18px; height: 12px; border-radius: 3px; border: 2px solid; display: inline-block; }
+.sw.entry { background: #dcecee; border-color: #0c6b73; }
+.sw.decision { background: #fbefd9; border-color: #9a5b00; }
+.sw.output { background: #ffe3da; border-color: #e2512b; }
+.sw.data { background: #ffffff; border-color: #5a6f78; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.note { border: 1.5px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--surface); min-width: 0; }
+.note h2 { margin: 0 0 4px; font: 700 1rem var(--font-display); }
+.note p { margin: 0; font-size: 0.92rem; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>getmydrug workflow</h1>
+    <p class="lede">A patient arrives from an ad link or a prescription launch, picks an insurer and a drug, and leaves with approval criteria, cost options and a support link.</p>
+  </header>
+
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  subgraph ENTRY["Entry"]
+    A["Ad link<br/>drug can be preselected"]
+    B["Prescription launch<br/>from the prescribing workflow"]
+  end
+  A --> DX
+  B --> DX
+  DX["1. Diagnosis<br/>Migraine"]
+  DX --> INS
+  INS{"2. Insurer"}
+  INS -->|UnitedHealthcare| DU["3. Drug<br/>Nurtec ODT, Ubrelvy or Qulipta"]
+  INS -->|Cigna| DC["3. Drug<br/>Nurtec ODT<br/>others coming"]
+  INS -->|None, paying cash| DN["3. Drug<br/>Nurtec ODT, Ubrelvy or Qulipta"]
+  DU --> CRIT
+  DC --> CRIT
+  DN --> COST
+  CRIT["Output 1: Approval criteria<br/>first approval and renewal<br/>state and plan notes"]
+  CRIT --> ASK{"Check my situation?"}
+  ASK -->|Yes| INT["Short interview<br/>questions set by the insurer's rules"]
+  INT --> LIST["Checklist: likely met, not met, confirm<br/>plus a note for the prescriber"]
+  LIST --> COST
+  ASK -->|No| COST
+  COST["Output 2: Cost data<br/>GoodRx, Cost Plus Drugs<br/>live estimate planned"]
+  COST --> SUP["Output 3: Commercial support<br/>manufacturer savings and support link"]
+
+  subgraph DATA["Data behind each step (YAML read at load, plus external pages)"]
+    Y1["directory.yaml<br/>conditions, insurers, drugs, links"]
+    Y2["pa_criteria_INSURER.yaml"]
+    Y3["eligibility_rules_INSURER.yaml"]
+    X["GoodRx, Cost Plus, manufacturer sites<br/>external pages"]
+  end
+  Y1 -.-> INS
+  Y2 -.-> CRIT
+  Y3 -.-> INT
+  X -.-> COST
+  X -.-> SUP
+
+  classDef entry fill:#dcecee,stroke:#0c6b73,color:#12252d
+  classDef decision fill:#fbefd9,stroke:#9a5b00,color:#12252d
+  classDef output fill:#ffe3da,stroke:#e2512b,color:#12252d
+  classDef data fill:#ffffff,stroke:#5a6f78,color:#12252d
+  class A,B entry
+  class INS,ASK decision
+  class CRIT,COST,SUP output
+  class Y1,Y2,Y3,X data
+</pre>
+  </div>
+
+  <div class="legend" aria-label="Legend">
+    <span><i class="sw entry"></i>Entry point</span>
+    <span><i class="sw decision"></i>Patient choice</span>
+    <span><i class="sw output"></i>Output to the patient</span>
+    <span><i class="sw data"></i>Data source</span>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h2>Paying cash skips approval</h2>
+      <p>With no insurance there is no prior authorization, so the flow goes straight from drug choice to cost data and the support link.</p>
+    </div>
+    <div class="note">
+      <h2>Insurers differ by drug</h2>
+      <p>UnitedHealthcare has criteria for all three drugs. Cigna has Nurtec ODT only for now, so the other two show as coming soon.</p>
+    </div>
+    <div class="note">
+      <h2>Answers stay in the tab</h2>
+      <p>The optional interview is scored in the browser. Nothing is sent or stored, and the page only reads static data files.</p>
+    </div>
+  </div>
+</div>

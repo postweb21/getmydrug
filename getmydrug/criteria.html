@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>getmydrug criteria</title>
+<style>
+:root{--bg:#eef3f5;--surface:#fff;--ink:#12252d;--muted:#5a6f78;--line:#d3dfe3;--teal:#0c6b73;--cap:#e2512b}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1a1f;--surface:#15262d;--ink:#e6f0f2;--muted:#93a9b1;--line:#28404a;--teal:#4fc0c9;--cap:#ff6a42}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;padding:24px 16px 40px}
+main{max-width:760px;margin:0 auto}
+h1{margin:0 0 4px;font-size:1.7rem}
+.sub{color:var(--muted);margin:0 0 18px}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px;flex:1;min-width:200px}
+select{font:inherit;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.card h2{margin:0 0 6px;font-size:1.05rem;color:var(--teal)}
+.meta{font-size:.85rem;color:var(--muted)}
+ul{margin:6px 0;padding-left:20px} li{margin:4px 0}
+.logic{font-weight:600;font-size:.9rem}
+.err{color:var(--cap)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Prior authorization criteria</h1>
+  <p class="sub">Read live from the YAML files in <code>data/</code>. Demo data, not coverage advice.</p>
+  <div class="row">
+    <label>Insurer <select id="insurer"></select></label>
+    <label>Drug <select id="drug"></select></label>
+  </div>
+  <div id="out" aria-live="polite"></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<script>
+(function () {
+  var DIR = "data/directory.yaml";
+  var cache = {}, directory = null;
+
+  // Fetch and parse a YAML file once. Nothing is stored beyond this page's memory.
+  function getYaml(path) {
+    if (cache[path]) return cache[path];
+    cache[path] = fetch(path, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error(path + " returned " + r.status);
+      return r.text();
+    }).then(function (t) { return jsyaml.load(t); });
+    return cache[path];
+  }
+
+  // Replace "ref:definitions.x.y" strings with the list they point to.
+  function resolve(node, root) {
+    if (typeof node === "string" && node.indexOf("ref:") === 0) {
+      return node.slice(4).split(".").reduce(function (o, k) { return o && o[k]; }, root) || [];
+    }
+    if (node instanceof Date) return node;
+    if (Array.isArray(node)) return node.map(function (n) { return resolve(n, root); });
+    if (node && typeof node === "object") {
+      var o = {}; Object.keys(node).forEach(function (k) { o[k] = resolve(node[k], root); }); return o;
+    }
+    return node;
+  }
+
+  // Public helper: window.getmydrugCriteria("uhc", "qulipta") -> { policy, drug, notes, disclaimer }
+  window.getmydrugCriteria = function (insurerId, drugId) {
+    return getYaml(DIR).then(function (dir) {
+      var ins = dir.insurers.filter(function (i) { return i.id === insurerId; })[0];
+      if (!ins || !ins.criteria_file) throw new Error("No criteria file for " + insurerId);
+      return getYaml(ins.criteria_file).then(function (c) {
+        c = resolve(c, c);
+        if (!c.drugs[drugId]) throw new Error("No criteria for " + drugId);
+        return { policy: c.policy, drug: c.drugs[drugId], notes: c.state_and_plan_notes || [], disclaimer: c.disclaimer };
+      });
+    });
+  };
+
+  function fmtDate(v) { return v instanceof Date ? v.toISOString().slice(0, 10) : String(v); }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e;
+  }
+  function list(items) {
+    var ul = el("ul");
+    items.forEach(function (i) {
+      var li = el("li", null, typeof i === "string" ? i : (i.requirement || JSON.stringify(i)));
+      if (i && i.options) li.appendChild(list(i.options));
+      var more = i && (i.triptan_choices || i.choices);
+      if (more && more.length) { var m = el("div", "meta", "Counts: " + more.join("; ")); li.appendChild(m); }
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  function block(title, node, labels) {
+    var card = el("section", "card"); card.appendChild(el("h2", null, title));
+    if (node.logic) card.appendChild(el("div", "logic", node.logic));
+    if (node.pathways) {
+      Object.keys(node.pathways).forEach(function (k) {
+        card.appendChild(el("div", "logic", labels[k] || k));
+        var p = node.pathways[k]; if (p.logic) card.appendChild(el("div", "meta", p.logic));
+        card.appendChild(list(p.criteria || []));
+      });
+    } else card.appendChild(list(node.criteria || []));
+    if (node.use_specific) Object.keys(node.use_specific).forEach(function (k) {
+      card.appendChild(el("div", "logic", labels[k] || k)); card.appendChild(list(node.use_specific[k]));
+    });
+    return card;
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var out = $("out");
+
+  function show() {
+    out.textContent = "Loading...";
+    window.getmydrugCriteria($("insurer").value, $("drug").value).then(function (r) {
+      out.textContent = "";
+      var head = el("section", "card");
+      head.appendChild(el("h2", null, r.policy.payer + ": " + r.policy.program_name));
+      head.appendChild(el("div", "meta", "Policy " + r.policy.program_number + ", effective " + fmtDate(r.policy.effective_date) + ", approvals last " + r.policy.authorization_duration_months + " months"));
+      head.appendChild(el("p", null, "Use: " + r.drug.use));
+      out.appendChild(head);
+      out.appendChild(block("First approval", r.drug.initial_authorization, directory.pathway_labels));
+      if (r.drug.reauthorization) out.appendChild(block("Renewal", r.drug.reauthorization, directory.pathway_labels));
+      if (r.notes.length) { var n = el("section", "card"); n.appendChild(el("h2", null, "State and plan notes")); n.appendChild(list(r.notes)); out.appendChild(n); }
+      if (r.disclaimer) out.appendChild(el("p", "meta", String(r.disclaimer).trim()));
+    }).catch(function (e) { out.textContent = ""; out.appendChild(el("p", "err", "Could not load criteria: " + e.message)); });
+  }
+
+  function fillDrugs() {
+    var ins = directory.insurers.filter(function (i) { return i.id === $("insurer").value; })[0];
+    var sel = $("drug"); sel.textContent = "";
+    var ids = ins.drug_ids || [];
+    Object.keys(directory.drugs).forEach(function (cond) {
+      directory.drugs[cond].forEach(function (d) {
+        if (ids.indexOf(d.id) > -1) { var o = el("option", null, d.name); o.value = d.id; sel.appendChild(o); }
+      });
+    });
+    if (!ids.length) { out.textContent = "No approval criteria apply when paying cash."; return; }
+    show();
+  }
+
+  getYaml(DIR).then(function (d) {
+    directory = d;
+    d.insurers.filter(function (i) { return i.criteria_file; }).forEach(function (i) {
+      var o = el("option", null, i.label); o.value = i.id; $("insurer").appendChild(o);
+    });
+    $("insurer").addEventListener("change", fillDrugs);
+    $("drug").addEventListener("change", show);
+    fillDrugs();
+  }).catch(function (e) {
+    out.appendChild(el("p", "err", "Could not load " + DIR + ". Serve this folder with: python3 -m http.server. " + e.message));
+  });
+})();
+</script>
+</body>
+</html>
