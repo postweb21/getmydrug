@@ -86,10 +86,10 @@ function buildRequest(task, body) {
   };
   if (task === 'extract') {
     return {
-      model: MODEL, max_tokens: 6000,
+      model: MODEL, max_tokens: 16000,
       system: GROUNDING,
       messages: [{ role: 'user', content: [doc, { type: 'text', text:
-        'Read this prescription drug coverage policy. Extract the payer, the drugs it covers, the initial authorization criteria (one entry per requirement, with a verbatim quote each), and the smallest set of plain-language questions a patient could answer to check those criteria. Put renewal rules, quantity limits, approval duration and state or plan exceptions in notes.' }] }],
+        'Read this prescription drug coverage policy. Keep each quote to one sentence. Extract the payer, the drugs it covers, the initial authorization criteria (one entry per requirement, with a verbatim quote each), and the smallest set of plain-language questions a patient could answer to check those criteria. Put renewal rules, quantity limits, approval duration and state or plan exceptions in notes.' }] }],
       output_config: { format: { type: 'json_schema', schema: EXTRACT_SCHEMA } }
     };
   }
@@ -136,6 +136,7 @@ module.exports = async function handler(req, res) {
 
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
   if (body.task === 'ask') return res.status(200).json({ answer: text });
+  if (data.stop_reason === 'max_tokens') return res.status(502).json({ error: 'The policy is too long to extract in one pass; split the PDF by drug and add the parts separately.' });
   try { return res.status(200).json(JSON.parse(text)); }
   catch (e) { return res.status(502).json({ error: 'Model returned non-JSON', raw: text.slice(0, 500) }); }
 };
