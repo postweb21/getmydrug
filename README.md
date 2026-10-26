@@ -2,9 +2,9 @@
 **Live demo:** [getmydrug.vercel.app](https://getmydrug.vercel.app)
 A patient-facing, chat-style demo that answers three questions before a prescription is written:
 
-1. What does my insurance require before it will cover this medicine?
-2. Do my own treatment history and migraine pattern line up with those requirements?
-3. Where can I look for a cash price or a manufacturer support program?
+Live demo: https://getmydrug.vercel.app/
+
+**Find out what your insurer needs before it covers your medicine — before the pharmacy counter, not after.**
 
 Today a patient usually gets a prescription, goes to the pharmacy, and only then learns about the cost and whether the plan approves it. getmydrug moves that discovery to the front, so the patient and prescriber can start from the plan's actual requirements.
 
