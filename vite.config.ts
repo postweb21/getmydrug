@@ -3,6 +3,6 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/getmydrug/',
+  base: process.env.GITHUB_ACTIONS ? '/getmydrug/' : '/',
   plugins: [react()],
 })
