@@ -1,5 +1,5 @@
 # getmydrug
-
+**Live demo:** [getmydrug.vercel.app](https://getmydrug.vercel.app)
 A patient-facing, chat-style demo that answers three questions before a prescription is written:
 
 1. What does my insurance require before it will cover this medicine?
